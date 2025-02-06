@@ -1,5 +1,6 @@
 package com.springboot.member.service;
 
+import com.springboot.auth.AuthorityUtils;
 import com.springboot.exception.BusinessLogicException;
 import com.springboot.exception.ExceptionCode;
 import com.springboot.helper.event.MemberRegistrationApplicationEvent;
@@ -9,11 +10,13 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -27,16 +30,26 @@ import java.util.Optional;
 public class MemberService {
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher publisher;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthorityUtils authorityUtils;
 
-    public MemberService(MemberRepository memberRepository,
-                         ApplicationEventPublisher publisher) {
+    public MemberService(MemberRepository memberRepository, ApplicationEventPublisher publisher, PasswordEncoder passwordEncoder, AuthorityUtils authorityUtils) {
         this.memberRepository = memberRepository;
         this.publisher = publisher;
-
+        this.passwordEncoder = passwordEncoder;
+        this.authorityUtils = authorityUtils;
     }
 
     public Member createMember(Member member) {
         verifyExistsEmail(member.getEmail());
+        // 비밀번호 암호화 과정 추가 필요
+        String encryptedPassword = passwordEncoder.encode(member.getPassword());
+        member.setPassword(encryptedPassword);
+
+        //권한 정보 추가
+        List<String> roles = authorityUtils.createAuthorities(member.getEmail());
+        member.setRoles(roles);
+
         Member savedMember = memberRepository.save(member);
 
         // 추가된 부분
